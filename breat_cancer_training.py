@@ -1,55 +1,109 @@
-# breast_cancer_training.py
+# breast_cancer_training_advanced.py
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
+import joblib
+import os
+
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-import joblib
+from sklearn.pipeline import Pipeline
+import warnings
 
-# 1️⃣ Load dataset
-df = pd.read_csv(r'D:\projects\breast cnacer project\data.csv')
-print("✅ Loaded dataset:")
-print(df.head())
+warnings.filterwarnings("ignore")
 
-# 2️⃣ Drop useless columns
-if 'id' in df.columns:
-    df = df.drop(columns=['id'])
-if 'Unnamed: 32' in df.columns:
-    df = df.drop(columns=['Unnamed: 32'])
-df = df.dropna()  # Drop rows with any NaNs
-print("\n✅ After cleaning:", df.shape)
+# ✅ Config
+DATA_PATH = r'D:\projects\breast cnacer project\data.csv'
+MODEL_PATH = r'D:\projects\breast cnacer project\cancer_model.pkl'
+SCALER_PATH = r'D:\projects\breast cnacer project\scaler.pkl'
 
-# 3️⃣ Encode target: M = 0 (Malignant), B = 1 (Benign)
-df['diagnosis'] = df['diagnosis'].map({'M': 0, 'B': 1})
+# ✅ Features to drop
+DROP_COLS = ['id', 'Unnamed: 32']
 
-# 4️⃣ Split features and labels
-X = df.drop(columns=['diagnosis'])
-y = df['diagnosis']
+# ✅ 1. Load and clean data
+def load_data(path):
+    df = pd.read_csv(path)
+    df.drop(columns=[col for col in DROP_COLS if col in df.columns], inplace=True)
+    df.dropna(inplace=True)
+    df['diagnosis'] = df['diagnosis'].map({'M': 0, 'B': 1})
+    print(f"✅ Data loaded and cleaned. Shape: {df.shape}")
+    return df
 
-# 5️⃣ Split train/test
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+# ✅ 2. Split features and target
+def split_features_target(df):
+    X = df.drop('diagnosis', axis=1)
+    y = df['diagnosis']
+    return X, y
 
-# 6️⃣ Scale features
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# ✅ 3. Train and evaluate model
+def train_and_evaluate(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
 
-# 7️⃣ Train model
-model = LogisticRegression(max_iter=10000)
-model.fit(X_train_scaled, y_train)
+    # Define pipeline
+    pipeline = Pipeline([
+        ('scaler', StandardScaler()),
+        ('classifier', LogisticRegression(max_iter=10000, random_state=42))
+    ])
 
-# 8️⃣ Evaluate
-y_pred = model.predict(X_test_scaled)
-print("\n✅ Model Evaluation:")
-print("Accuracy:", accuracy_score(y_test, y_pred))
-print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
-print("Classification Report:\n", classification_report(y_test, y_pred))
+    # Train
+    pipeline.fit(X_train, y_train)
 
-# 9️⃣ Save model and scaler
-joblib.dump(model, r'D:\projects\breast cnacer project\cancer_model.pkl')
-joblib.dump(scaler, r'D:\projects\breast cnacer project\scaler.pkl')
+    # Predict
+    y_pred = pipeline.predict(X_test)
 
-print("\n✅ Model and scaler saved successfully!")
+    # Metrics
+    print("\n✅ Model Evaluation:")
+    print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+    print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    print("Classification Report:\n", classification_report(y_test, y_pred))
+
+    # Cross-validation
+    cv_scores = cross_val_score(pipeline, X, y, cv=5)
+    print(f"✅ 5-fold Cross-Validation Accuracy: {np.mean(cv_scores):.4f} ± {np.std(cv_scores):.4f}")
+
+    return pipeline
+
+# ✅ 4. Optional: Feature importance for tree-based models
+def train_random_forest(X, y):
+    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf.fit(X, y)
+    importances = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
+    print("\n⭐ Random Forest Feature Importances:")
+    print(importances)
+    return rf
+
+# ✅ 5. Save model and scaler separately
+def save_model_and_scaler(pipeline):
+    # Extract scaler and model from pipeline
+    scaler = pipeline.named_steps['scaler']
+    model = pipeline.named_steps['classifier']
+
+    joblib.dump(model, MODEL_PATH)
+    joblib.dump(scaler, SCALER_PATH)
+
+    print(f"\n✅ Model saved to: {MODEL_PATH}")
+    print(f"✅ Scaler saved to: {SCALER_PATH}")
+
+# ✅ 6. Main
+def main():
+    print("🚀 Starting Breast Cancer Model Training...")
+
+    df = load_data(DATA_PATH)
+    X, y = split_features_target(df)
+
+    # Train logistic regression pipeline
+    pipeline = train_and_evaluate(X, y)
+    save_model_and_scaler(pipeline)
+
+    # Optional Random Forest feature importance
+    _ = train_random_forest(X, y)
+
+    print("\n🎯 Training Complete.")
+
+if __name__ == '__main__':
+    main()

@@ -2,10 +2,30 @@
 <html>
 <head>
     <title>Prediction Result</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background-color: #f9f9f9; }
+        .result {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 20px;
+        }
+        .benign { color: green; }
+        .malignant { color: red; }
+    </style>
 </head>
 <body>
-    <h2>Prediction Result:</h2>
-    <p><strong>{{ prediction }}</strong></p>
-    <a href="/">Back to Form</a> | <a href="/eda">View EDA</a>
+
+    <div class="result">
+        {% if prediction == "Benign" %}
+            <p class="benign">✅ The tumor is <strong>{{ prediction }}</strong></p>
+        {% else %}
+            <p class="malignant">⚠️ The tumor is <strong>{{ prediction }}</strong></p>
+        {% endif %}
+        <br>
+        <a href="/">🔙 Predict Again</a>
+    </div>
+
 </body>
 </html>

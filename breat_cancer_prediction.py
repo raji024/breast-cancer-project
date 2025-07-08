@@ -1,13 +1,23 @@
 import pandas as pd
 import joblib
 import os
+import sys
 
-# 1️⃣ Load model and scaler
-model = joblib.load(r'D:\projects\breast cnacer project\cancer_model.pkl')
-scaler = joblib.load(r'D:\projects\breast cnacer project\scaler.pkl')
-print("✅ Model and scaler loaded successfully.\n")
+# ✅ 1️⃣ Config paths
+MODEL_PATH = r'D:\projects\breast cnacer project\cancer_model.pkl'
+SCALER_PATH = r'D:\projects\breast cnacer project\scaler.pkl'
+OUTPUT_PATH = r'D:\projects\breast cnacer project\new_patient.csv'
 
-# 2️⃣ Define columns (same as your training data, without diagnosis)
+# ✅ 2️⃣ Load model and scaler
+try:
+    model = joblib.load(MODEL_PATH)
+    scaler = joblib.load(SCALER_PATH)
+    print(f"✅ Model and scaler loaded successfully.\n")
+except Exception as e:
+    print(f"❌ ERROR loading model/scaler: {e}")
+    sys.exit(1)
+
+# ✅ 3️⃣ Define feature columns
 columns = [
     'radius_mean', 'texture_mean', 'perimeter_mean', 'area_mean',
     'smoothness_mean', 'compactness_mean', 'concavity_mean', 'concave points_mean',
@@ -19,28 +29,40 @@ columns = [
     'concave points_worst', 'symmetry_worst', 'fractal_dimension_worst'
 ]
 
-# 3️⃣ Take user input for all columns
+# ✅ 4️⃣ Take user input with validation
+print("🔢 Please enter the following 30 feature values for the tumor sample:")
 input_values = []
-for col in columns:
-    val = float(input(f"Enter {col}: "))
-    input_values.append(val)
 
-# 4️⃣ Convert to DataFrame
-new_patient_df = pd.DataFrame([input_values], columns=columns)
+for feature in columns:
+    while True:
+        try:
+            value = float(input(f"➡️  {feature}: "))
+            input_values.append(value)
+            break
+        except ValueError:
+            print("⚠️ Invalid input! Please enter a numeric value.")
 
-# 5️⃣ Scale the input
-new_patient_scaled = scaler.transform(new_patient_df)
+# ✅ 5️⃣ Convert to DataFrame
+patient_df = pd.DataFrame([input_values], columns=columns)
+print("\n✅ Input received successfully.")
 
-# 6️⃣ Make prediction
-prediction = model.predict(new_patient_scaled)[0]
-result = 'Malignant' if prediction == 0 else 'Benign'
+# ✅ 6️⃣ Scale input
+scaled_input = scaler.transform(patient_df)
+print("✅ Input scaled.")
 
-print(f"\n✅ Prediction: {result}")
+# ✅ 7️⃣ Make prediction
+prediction = model.predict(scaled_input)[0]
+result_label = 'Benign' if prediction == 1 else 'Malignant'
 
-# 7️⃣ Add prediction column
-new_patient_df['prediction'] = result
+# ✅ 8️⃣ Print and save result
+print(f"\n🎯 Prediction Result: The tumor is **{result_label.upper()}**")
 
-# 8️⃣ Save to new_patient.csv (overwrite)
-output_path = r'D:\projects\breast cnacer project\new_patient.csv'
-new_patient_df.to_csv(output_path, index=False)
-print(f"✅ Input and prediction saved to {output_path}")
+# Add prediction column to saved file
+patient_df['prediction'] = result_label
+try:
+    patient_df.to_csv(OUTPUT_PATH, index=False)
+    print(f"✅ Prediction and input saved to: {OUTPUT_PATH}")
+except Exception as e:
+    print(f"⚠️ Could not save CSV: {e}")
+
+print("\n✅ Prediction complete.")
